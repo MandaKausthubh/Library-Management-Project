@@ -23,4 +23,8 @@ The Project consists of two types of executables:
 ## How is it implemented ?
  1. **Login page**: Stores the list of all valid Librarians in (Library.txt) and list of all registered Clients in (Clients.txt)
  2. **Borrow and Returns**: \
-    2.1 **Creating**
+    2.1 **Creating a requst**: \
+        The client side creates TCP request, which is received by the Librarian which creates a new processes using fork().\
+
+    2.2 **Servicing a request**:\
+        Each *stack* of books is treated as a (multi) Producer-Consumer Problem which is solved using a Semaphor and Locking Mechanism.
