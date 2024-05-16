@@ -22,5 +22,5 @@ The Project consists of two types of executables:
 
 ## How is it implemented ?
  1. **Login page**: Stores the list of all valid Librarians in (Library.txt) and list of all registered Clients in (Clients.txt)
- 2. **Borrow and Returns**:\ 
+ 2. **Borrow and Returns**: \
     2.1 **Creating**
