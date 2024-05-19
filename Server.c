@@ -1,71 +1,82 @@
-#include <stdio.h>
-#include <sys/socket.h>
-#include <string.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <err.h>
 #include <fcntl.h>
-const char LibrarianFile[ ] = "Librarian.bin";
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <string.h>
 
-typedef struct {
-    char ID[30];
-    char Password[30];
-} LoginIDPass;
+const int port_number = 9999;
+const int MAX_NUMBER_OF_CLIENTS = 5;
 
+void* ServingAClient(void *arg) {
+    // ServingAClient
+    int clientSocket = *((int *)arg);
+    free(arg);
+    char buffer[1024];
+    int bytes_read;
 
-void Login() {
-    while(1) {
-        char LoginID[30], Password[30];
-        printf("Please enter your Librarian ID: ");
-        scanf("%s", LoginID);
-        printf("Please enter your Librarian Password: ");
-        scanf("%s", Password);
-        printf("\n\n\n");
+    // Communicate with the client
+    while ((bytes_read = read(clientSocket, buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[bytes_read] = '\0';
+        printf("Received: %s\n", buffer);
+        printf("What to send back?: ");
+        scanf("%s", buffer);
+        write(clientSocket, buffer, bytes_read);  // Echo back the message
+        if (strcmp(buffer, "bye") == 0) break;
+    }
 
-        int fd = open(LibrarianFile, O_RDONLY);
-        LoginIDPass Temp;
-        int login = 0;
+    // Close the client socket
+    close(clientSocket);
+    return NULL;
+}
 
-        while(1) {
-            read(fd, &Temp.ID, sizeof(Temp));
-            if(strcmp(Temp.ID, LoginID) == 0) {
-                if(strcmp(Temp.Password, Password)) {
-                    printf("Login Successful !!\n");
-                    login = 1;
-                } else {
-                    printf("Wrong Password Entered!!\n");
-                    Login();
-                }
-                break;
-            }
-        }
-        close(fd);
-        if(login) return;
-        Login();
+void CreateThread(int newsockfd, pthread_t* thread_id) {
+    if(pthread_create(thread_id, NULL, ServingAClient, &newsockfd)) {
+        perror("pthread create error");
+        close(newsockfd);
+        exit(1);
     }
 }
 
-void CreateNewAccount() {
-    char LoginID[30], Password[30];
-    printf("New LibrarianID: ");
-    scanf("%s", LoginID);
-    printf("New password");
-    scanf("%s", Password);
-    int fd = open(LibrarianFile, O_RDWR);
-    LoginIDPass Temp;
-    int login = 0;
+int main(void) {
 
-    while(read(fd, &Temp, sizeof(Temp)) != 0) {
-        if(strcmp(Temp.ID, LoginID) == 0) {
-            printf("Account aldready exists!!");
-            login = 1;
-            break;
-        }
+    int socketfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(socketfd < 0) {
+        perror("Unable to create a socket");
+        exit(1);
     }
-    close(fd);
-    if(login) return;
     
-}
+    struct sockaddr_in S_Addr, C_Addr;
+    S_Addr.sin_family = AF_INET;
+    S_Addr.sin_addr.s_addr = INADDR_ANY;
+    S_Addr.sin_port = port_number;
 
-int main(void)  {
-    Login();
+    if(bind(socketfd, (struct sockaddr *) & S_Addr , sizeof(S_Addr) ) < 0) {
+        perror("Bind Error");
+        close(socketfd);
+        exit(1);
+    }
+
+    listen(socketfd, MAX_NUMBER_OF_CLIENTS);
+    socklen_t C_len = sizeof(C_Addr);
+
+    while(1) {
+        int newsockfd;
+        newsockfd = accept(socketfd, (struct sockaddr *) &C_Addr, &C_len);
+        if (newsockfd < 0) {
+            perror("Couldn't accept new client");
+            close(socketfd);
+            close(newsockfd);
+            exit(1);
+        }
+        pthread_t thread_id;
+        CreateThread(newsockfd, &thread_id);
+    }
+
     return 0;
 }
+
